@@ -1,14 +1,14 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Ignoriert TypeScript-Fehler beim Build
+  // Wir ignorieren Fehler, damit der Build durchläuft
   typescript: {
     ignoreBuildErrors: true,
   },
-  // Ignoriert ESLint-Fehler beim Build (DAS ersetzt --no-lint)
   eslint: {
     ignoreDuringBuilds: true,
   },
+  // WICHTIG: Hier darf KEIN "output: export" stehen!
 };
 
 export default nextConfig;
