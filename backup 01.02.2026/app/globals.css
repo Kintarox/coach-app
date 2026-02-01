@@ -1,0 +1,25 @@
+@import "tailwindcss";
+
+@theme {
+  --color-apple-red: #FF3B30;
+  --color-apple-bg: #F5F5F7;
+  --color-apple-text: #1D1D1F;
+  --color-apple-border: #E5E5EA;
+}
+
+/* Eigene Utilities */
+@utility glass-header {
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--color-apple-border);
+}
+
+@utility scroller {
+  &::-webkit-scrollbar { width: 6px; }
+  &::-webkit-scrollbar-thumb { background-color: var(--color-apple-border); border-radius: 20px; }
+}
+
+body {
+  background-color: var(--color-apple-bg);
+  color: var(--color-apple-text);
+}
