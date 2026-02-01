@@ -1,11 +1,14 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // TypeScript Fehler ignorieren wir weiterhin hier
+  // Ignoriert TypeScript-Fehler beim Build
   typescript: {
     ignoreBuildErrors: true,
   },
-  // Den ESLint-Block LÖSCHEN wir, das machen wir jetzt via Vercel-Einstellung
+  // Ignoriert ESLint-Fehler beim Build (DAS ersetzt --no-lint)
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
 };
 
 export default nextConfig;
