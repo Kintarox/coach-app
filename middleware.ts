@@ -2,14 +2,14 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
-  // 1. Initialisiere die Antwort
+  // 1. Initialer Response (wir verändern ihn gleich noch)
   let response = NextResponse.next({
     request: {
       headers: request.headers,
     },
   })
 
-  // 2. Supabase Client für den Server erstellen
+  // 2. Supabase Client erstellen
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -19,6 +19,7 @@ export async function middleware(request: NextRequest) {
           return request.cookies.get(name)?.value
         },
         set(name: string, value: string, options: CookieOptions) {
+          // Cookies für Request UND Response setzen
           request.cookies.set({
             name,
             value,
@@ -36,6 +37,7 @@ export async function middleware(request: NextRequest) {
           })
         },
         remove(name: string, options: CookieOptions) {
+          // Cookies löschen
           request.cookies.set({
             name,
             value: '',
@@ -56,34 +58,23 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // 3. User-Session prüfen
-  const { data: { user } } = await supabase.auth.getUser()
-
-  // 4. Pfad-Logik
-  const path = request.nextUrl.pathname
-  const isPublicPage = path === '/login' || path === '/register'
-
-  // Szenario A: Nicht eingeloggt, will auf private Seite -> Redirect zu Login
-  if (!user && !isPublicPage) {
-    return NextResponse.redirect(new URL('/login', request.url))
-  }
-
-  // Szenario B: Eingeloggt, will auf Login-Seite -> Redirect zum Dashboard
-  if (user && isPublicPage) {
-    return NextResponse.redirect(new URL('/', request.url))
-  }
+  // 3. Session aktualisieren (WICHTIG!)
+  // Das sorgt dafür, dass abgelaufene Sessions erneuert werden
+  await supabase.auth.getUser()
 
   return response
 }
 
+// 4. Matcher Config
+// Hier sagen wir: "Bitte lauf NICHT auf Bildern, Icons oder statischen Dateien"
 export const config = {
   matcher: [
     /*
-     * Matcht alle Pfade außer:
+     * Match all request paths except for the ones starting with:
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * - Bilder (svg, png, jpg, jpeg, gif, webp)
+     * Feel free to modify this pattern to include more paths.
      */
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
