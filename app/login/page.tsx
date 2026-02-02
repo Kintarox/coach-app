@@ -26,7 +26,7 @@ export default function LoginPage() {
       setError("Falsche E-Mail oder Passwort.");
       setLoading(false);
     } else {
-      router.push('/'); // Weiterleitung zum Dashboard
+      router.push('/dashboard'); // Weiterleitung zum Dashboard
       router.refresh();
     }
   };
@@ -55,7 +55,7 @@ export default function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full p-4 bg-gray-50 border-none rounded-2xl font-bold text-gray-900 focus:ring-2 focus:ring-black transition"
-              placeholder="coach@verein.de"
+              placeholder="coach@verein.at"
             />
           </div>
 

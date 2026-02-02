@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 
 export default function Home() {
-  // Leitet sofort weiter auf /login
+  // Wer die Seite aufruft, fliegt sofort zum Login
   redirect('/login');
 }
