@@ -1,6 +1,5 @@
-import { redirect } from 'next/navigation';
-
 export default function Home() {
-  // Wer an die Haustür klopft, wird sofort zum Login geschickt
-  redirect('/login');
+  // Diese Seite sieht eigentlich niemand mehr, 
+  // weil die Middleware vorher entscheidet (Login oder Dashboard).
+  return null; 
 }
