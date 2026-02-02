@@ -1,11 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // TypeScript Fehler ignorieren wir hier (das ist erlaubt)
   typescript: {
     ignoreBuildErrors: true,
   },
-  // WICHTIG: Den 'eslint' Block haben wir gelöscht!
+  // HIER DARF NICHTS MEHR STEHEN (kein 'output', kein 'images')
 };
 
 export default nextConfig;
