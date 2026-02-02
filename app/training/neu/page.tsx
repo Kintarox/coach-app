@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
 
+export const dynamic = 'force-dynamic';
+
 // Typen für Drag & Drop
 type DragItem = {
   type: 'NEW' | 'MOVE';
