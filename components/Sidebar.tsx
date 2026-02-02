@@ -2,12 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const router = useRouter();
   const [loggingOut, setLoggingOut] = useState(false);
   
   const [profile, setProfile] = useState({ first_name: '', last_name: '', role: '', club_name: '' });
@@ -32,13 +31,6 @@ export default function Sidebar() {
       return pathname === path;
   };
 
-  const handleLogout = async () => {
-    setLoggingOut(true);
-    await supabase.auth.signOut();
-    router.push('/login');
-    router.refresh();
-  };
-
   // --- HAUPTMENÜ ---
   const mainMenuItems = [
     { 
@@ -46,7 +38,6 @@ export default function Sidebar() {
         path: '/dashboard', 
         icon: 'ph-squares-four' 
     },
-    // --- NEU: TRAINER LISTE ---
     { 
         name: 'Trainer', 
         path: '/coaches', 
@@ -144,22 +135,40 @@ export default function Sidebar() {
 
       {/* USER INFO */}
       <div className="p-4 mt-auto">
-        <Link href="/profil" className="bg-gray-50 p-4 rounded-2xl flex items-center gap-3 border border-gray-100 hover:border-black transition group cursor-pointer">
-          <div className="w-10 h-10 bg-black text-white rounded-full flex items-center justify-center font-bold text-sm overflow-hidden">
-            {profile.first_name ? profile.first_name.charAt(0) : 'U'}
-          </div>
-          <div className="flex-1 overflow-hidden">
-            <h4 className="font-bold text-xs truncate text-gray-900 group-hover:text-black">
-                {profile.first_name ? `${profile.first_name} ${profile.last_name}` : 'Profil bearbeiten'}
-            </h4>
-            <p className="text-[10px] text-gray-400 font-bold uppercase truncate">
-                {profile.club_name || profile.role || 'Coach'}
-            </p>
-          </div>
-          <button onClick={(e) => { e.preventDefault(); handleLogout(); }} disabled={loggingOut} className="text-gray-300 hover:text-red-500 transition px-2">
-            {loggingOut ? <i className="ph-bold ph-spinner animate-spin"></i> : <i className="ph-bold ph-sign-out"></i>}
-          </button>
-        </Link>
+        <div className="bg-gray-50 p-4 rounded-2xl flex items-center gap-3 border border-gray-100 hover:border-black transition group">
+          
+          {/* Link zum Profil (Linker Bereich) */}
+          <Link href="/profil" className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer">
+            <div className="w-10 h-10 bg-black text-white rounded-full flex items-center justify-center font-bold text-sm overflow-hidden shrink-0">
+                {profile.first_name ? profile.first_name.charAt(0) : 'U'}
+            </div>
+            <div className="flex-1 overflow-hidden">
+                <h4 className="font-bold text-xs truncate text-gray-900 group-hover:text-black">
+                    {profile.first_name ? `${profile.first_name} ${profile.last_name}` : 'Profil bearbeiten'}
+                </h4>
+                <p className="text-[10px] text-gray-400 font-bold uppercase truncate">
+                    {profile.club_name || profile.role || 'Coach'}
+                </p>
+            </div>
+          </Link>
+
+          {/* Logout Button (Rechter Bereich via Form) */}
+          <form 
+            action="/auth/signout" 
+            method="post" 
+            onSubmit={() => setLoggingOut(true)}
+          >
+            <button 
+                type="submit" 
+                disabled={loggingOut} 
+                className="text-gray-300 hover:text-red-500 transition px-2 flex items-center justify-center"
+                title="Abmelden"
+            >
+                {loggingOut ? <i className="ph-bold ph-spinner animate-spin"></i> : <i className="ph-bold ph-sign-out"></i>}
+            </button>
+          </form>
+
+        </div>
       </div>
     </aside>
   );
