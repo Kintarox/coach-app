@@ -43,7 +43,7 @@ export default function Sidebar() {
   const mainMenuItems = [
     { 
         name: 'Dashboard', 
-        path: '/', 
+        path: '/dashboard', 
         icon: 'ph-squares-four' 
     },
     // --- NEU: TRAINER LISTE ---
