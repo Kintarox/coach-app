@@ -4,19 +4,6 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import Link from 'next/link';
 
-// Config für Icons (damit wir wissen, welches Icon zu welcher ID gehört)
-const materialIcons: Record<string, string> = {
-    balls: '⚽',
-    cones: '📍',
-    bibs: '🎽',
-    goals: '🥅',
-    poles: '🦯',
-    hurdles: '🚧',
-    ladder: '🪜',
-    dummies: '👤',
-    rings: '⭕',
-};
-
 export default function ExerciseCatalog() {
   const [exercises, setExercises] = useState<any[]>([]);
   const [filteredExercises, setFilteredExercises] = useState<any[]>([]);
@@ -26,11 +13,24 @@ export default function ExerciseCatalog() {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeCategory, setActiveCategory] = useState('Alle');
 
+  // KATEGORIEN LISTE (Ohne "Alle", da wir das separat behandeln)
   const categoriesList = [
-    'Schnelligkeit', 'Athletiktraining', 'Abschlussspiele', 'Torwarttraining',
-    'Passspiel', 'Torschuss', 'Ballannahme', 'Dribbling', 'Koordination',
-    'XvsX', 'Spielaufbau', 'Umschalten', 'Pressing', 'Überzahlspiel',
-    'Chancen herausspielen', 'Kombinationsspiel'
+    'Schnelligkeit', 
+    'Athletiktraining', 
+    'Abschlussspiele', 
+    'Torwarttraining',
+    'Passspiel', 
+    'Torschuss', 
+    'Ballannahme', 
+    'Dribbling', 
+    'Koordination',
+    'XvsX', 
+    'Spielaufbau', 
+    'Umschalten', 
+    'Pressing', 
+    'Überzahlspiel', 
+    'Chancen herausspielen', 
+    'Kombinationsspiel'
   ];
 
   useEffect(() => { fetchExercises(); }, []);
@@ -39,6 +39,7 @@ export default function ExerciseCatalog() {
   useEffect(() => {
     let result = exercises;
 
+    // 1. Filter nach Kategorie
     if (activeCategory !== 'Alle') {
       result = result.filter(ex => 
         ex.tags?.includes(activeCategory) || 
@@ -46,6 +47,7 @@ export default function ExerciseCatalog() {
       );
     }
 
+    // 2. Filter nach Suchbegriff
     if (searchTerm) {
       const lowerTerm = searchTerm.toLowerCase();
       result = result.filter(ex => 
@@ -73,52 +75,9 @@ export default function ExerciseCatalog() {
     setExercises(exercises.filter(ex => ex.id !== id));
   };
 
-  // --- DIE WICHTIGE NEUE FUNKTION ---
-  // Wandelt DB-Daten in lesbare Strings um (mit Icons!)
-  const parseMaterials = (materials: any, oldMaterialString?: string) => {
-    const result: string[] = [];
-    
-    // 1. Neues JSON Format prüfen
-    if (Array.isArray(materials)) {
-        materials.forEach((m: any) => {
-            if (m.amount > 0) {
-                const icon = materialIcons[m.id] || '';
-                result.push(`${icon} ${m.amount} ${m.label}`);
-            }
-        });
-    } 
-    // 2. Fallback: Altes String Format
-    else if (typeof oldMaterialString === 'string') {
-        const parts = oldMaterialString.split(',');
-        parts.forEach(p => {
-            const clean = p.trim();
-            if (clean) result.push(clean);
-        });
-    }
-    
-    // Wenn gar nichts gefunden wurde, aber materials ein String ist (Migrationsphase)
-    if (result.length === 0 && typeof materials === 'string') {
-         // Versuch es als JSON zu parsen
-         try {
-             const json = JSON.parse(materials);
-             if (Array.isArray(json)) {
-                 json.forEach((m: any) => {
-                    if (m.amount > 0) {
-                        const icon = materialIcons[m.id] || '';
-                        result.push(`${icon} ${m.amount} ${m.label}`);
-                    }
-                 });
-             }
-         } catch(e) {
-             // Wenn JSON fehlschlägt, ist es wohl ein normaler String
-             const parts = materials.split(',');
-             parts.forEach(p => {
-                if(p.trim()) result.push(p.trim());
-             });
-         }
-    }
-
-    return result;
+  const parseMaterials = (matString: string) => {
+    if (!matString || typeof matString !== 'string') return [];
+    return matString.split(',').map(m => m.trim()).filter(Boolean);
   };
 
   if (loading) return <div className="p-20 text-center ml-64 font-black text-gray-300 animate-pulse uppercase tracking-widest">Lade Academy...</div>;
@@ -140,6 +99,8 @@ export default function ExerciseCatalog() {
 
         {/* FILTER SECTION */}
         <div className="bg-white p-5 rounded-[2rem] shadow-sm border border-gray-100 mb-8 space-y-5">
+            
+            {/* 1. Suche */}
             <div className="relative w-full">
                 <i className="ph-bold ph-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
                 <input 
@@ -148,11 +109,38 @@ export default function ExerciseCatalog() {
                     className="w-full bg-gray-50 border-none rounded-xl py-3 pl-10 pr-4 text-xs font-bold focus:ring-1 focus:ring-black transition-all"
                 />
             </div>
+
+            {/* 2. Kategorien (Wrapping / Mehrzeilig) */}
             <div className="flex flex-wrap items-center gap-2">
-                <button onClick={() => setActiveCategory('Alle')} className={`px-5 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest border transition-all ${activeCategory === 'Alle' ? 'bg-black border-black text-white shadow-md' : 'bg-gray-100 border-gray-100 text-gray-500 hover:bg-gray-200'}`}>ALLE</button>
+                
+                {/* ALLE Button */}
+                <button 
+                    onClick={() => setActiveCategory('Alle')}
+                    className={`px-5 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest border transition-all ${
+                        activeCategory === 'Alle'
+                        ? 'bg-black border-black text-white shadow-md' 
+                        : 'bg-gray-100 border-gray-100 text-gray-500 hover:bg-gray-200'
+                    }`}
+                >
+                    ALLE
+                </button>
+
+                {/* Trennlinie */}
                 <div className="w-px h-6 bg-gray-200 mx-2"></div>
+
+                {/* Restliche Kategorien */}
                 {categoriesList.map((cat) => (
-                    <button key={cat} onClick={() => setActiveCategory(cat)} className={`px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest border transition-all ${activeCategory === cat ? 'bg-black border-black text-white shadow-md' : 'bg-white border-gray-100 text-gray-400 hover:border-gray-300 hover:bg-gray-50'}`}>{cat}</button>
+                    <button 
+                        key={cat} 
+                        onClick={() => setActiveCategory(cat)}
+                        className={`px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest border transition-all ${
+                            activeCategory === cat 
+                            ? 'bg-black border-black text-white shadow-md' 
+                            : 'bg-white border-gray-100 text-gray-400 hover:border-gray-300 hover:bg-gray-50'
+                        }`}
+                    >
+                        {cat}
+                    </button>
                 ))}
             </div>
         </div>
@@ -187,6 +175,7 @@ export default function ExerciseCatalog() {
                             <span className="text-blue-500 font-black text-[8px] uppercase tracking-wider">{ex.min_players}-{ex.max_players} SPIELER</span>
                         </div>
 
+                        {/* Tags Anzeige */}
                         <div className="flex flex-wrap gap-1 mb-3">
                              {ex.tags?.map((tag: string, i: number) => (
                                 <span key={i} className="bg-gray-50 text-gray-400 text-[7px] font-black px-1.5 py-0.5 rounded-md uppercase border border-gray-100 tracking-widest">{tag}</span>
@@ -196,12 +185,15 @@ export default function ExerciseCatalog() {
                         <p className="text-gray-400 text-[10px] leading-relaxed line-clamp-2 mb-4">{ex.description || "Keine Beschreibung."}</p>
 
                         <div className="mt-auto pt-3 border-t border-gray-50 flex flex-wrap gap-1.5">
-                            {/* HIER NUTZEN WIR UNSERE NEUE FUNKTION */}
-                            {parseMaterials(ex.materials, ex.material).map((mat, i) => (
-                                <span key={i} className="flex items-center gap-1 bg-gray-50 px-1.5 py-0.5 rounded-md text-[8px] font-bold text-gray-500 border border-gray-100">
-                                    {mat}
-                                </span>
-                            ))}
+                            {parseMaterials(ex.materials).map((mat, i) => {
+                                let icon = "📦";
+                                if (mat.toLowerCase().includes("ball")) icon = "⚽";
+                                else if (mat.toLowerCase().includes("hütchen")) icon = "📍";
+                                else if (mat.toLowerCase().includes("laibchen")) icon = "🎽";
+                                else if (mat.toLowerCase().includes("leibchen")) icon = "🎽";
+                                else if (mat.toLowerCase().includes("tor")) icon = "🥅";
+                                return <span key={i} className="flex items-center gap-1 bg-gray-50 px-1.5 py-0.5 rounded-md text-[8px] font-bold text-gray-500 border border-gray-100">{icon} {mat}</span>;
+                            })}
                         </div>
                     </div>
                 </div>
@@ -242,8 +234,7 @@ export default function ExerciseCatalog() {
                                   <div>
                                       <label className="text-[11px] font-black uppercase text-gray-300 tracking-[0.3em] block mb-5">Equipment</label>
                                       <div className="flex flex-wrap gap-3">
-                                          {/* AUCH HIER DIE NEUE FUNKTION NUTZEN */}
-                                          {parseMaterials(viewExercise.materials, viewExercise.material).map((m, i) => (
+                                          {parseMaterials(viewExercise.materials).map((m, i) => (
                                               <span key={i} className="bg-white px-5 py-2.5 rounded-2xl text-[11px] font-black border border-gray-100 shadow-sm">{m}</span>
                                           ))}
                                       </div>

@@ -2,14 +2,37 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { useParams } from 'next/navigation';
+import { FaPrint, FaTimes, FaRegClock, FaUser, FaFutbol } from 'react-icons/fa';
 
-export const dynamic = 'force-dynamic';
+// --- HELPER: Material Parser ---
+const parseMaterials = (rawMaterial: any) => {
+  let materialList: any[] = [];
+  if (rawMaterial) {
+    if (Array.isArray(rawMaterial)) {
+      materialList = rawMaterial.map((item: any) => {
+        if (typeof item === 'string') return { name: item, amount: '' };
+        const label = item.label || item.name || item.id;
+        return { name: label, amount: item.amount };
+      });
+    } else if (typeof rawMaterial === 'string') {
+      materialList = rawMaterial.split(',').map((str: string) => {
+        const clean = str.trim();
+        if (!clean) return null;
+        const match = clean.match(/^(\d+)(?:x|\s)?\s*(.*)/);
+        if (match) {
+          return { amount: match[1], name: match[2] };
+        } else {
+          return { amount: '', name: clean };
+        }
+      }).filter(Boolean);
+    }
+  }
+  return materialList;
+};
 
-export default function TrainingDetailsPage() {
+export default function TrainingPreviewPage() {
   const { id } = useParams();
-  const router = useRouter();
-  const searchParams = useSearchParams();
   const [plan, setPlan] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -18,121 +41,201 @@ export default function TrainingDetailsPage() {
       const { data, error } = await supabase.from('plans').select('*').eq('id', id).single();
       if (!error) setPlan(data);
       setLoading(false);
-      
-      // Wenn der URL-Parameter ?print=true gesetzt ist, öffne sofort den Druckdialog
-      if (searchParams.get('print') === 'true') {
-        setTimeout(() => window.print(), 1000);
-      }
     };
     fetchPlan();
-  }, [id, searchParams]);
+  }, [id]);
 
-  if (loading) return <div className="p-20 text-center ml-64 font-black text-gray-300 animate-pulse">Lade Einheit...</div>;
-  if (!plan) return <div className="p-20 text-center ml-64 font-black text-red-400">Einheit nicht gefunden.</div>;
+  if (loading) return <div className="p-20 text-center font-black text-gray-300 animate-pulse uppercase tracking-widest">Lade Daten...</div>;
+  if (!plan) return <div className="p-20 text-center font-black text-red-400 uppercase">Keine Daten gefunden</div>;
 
-  const phases = plan.content || {};
+  const phases = [
+    { id: 'warmup', title: 'Aufwärmen', color: 'text-emerald-600' },
+    { id: 'main1', title: 'Hauptteil I', color: 'text-blue-600' },
+    { id: 'main2', title: 'Hauptteil II', color: 'text-blue-700' },
+    { id: 'coolDown', title: 'Schluss', color: 'text-orange-600' }
+  ];
+
+  const allExercises: any[] = [];
+  phases.forEach(phase => {
+    const phaseExercises = plan.content?.[phase.id] || [];
+    phaseExercises.forEach((ex: any) => {
+      allExercises.push({
+        ...ex,
+        _phaseTitle: phase.title,
+        _phaseColor: phase.color
+      });
+    });
+  });
+
+  const formattedDate = new Date(plan.scheduled_at).toLocaleDateString('de-DE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
   return (
-    <div className="bg-[#F5F5F7] min-h-screen ml-0 md:ml-64 p-4 md:p-10 font-sans print:m-0 print:bg-white print:p-0">
+    <div className="bg-[#525659] min-h-screen py-10 print:bg-white print:py-0 font-sans print:text-black">
       
-      {/* ACTION BAR - Verschwindet beim Drucken */}
-      <div className="flex justify-between items-center mb-8 print:hidden">
-        <button onClick={() => router.back()} className="text-xs font-black uppercase tracking-widest text-gray-400 hover:text-black transition">
-          ← Zurück
+      {/* DRUCK BUTTONS */}
+      <div className="fixed top-6 right-6 flex gap-4 print:hidden z-50">
+        <button onClick={() => window.print()} className="bg-black text-white px-6 py-3 rounded-xl font-bold text-xs uppercase tracking-widest shadow-2xl hover:scale-105 transition-all flex items-center gap-2">
+          <FaPrint /> Drucken
         </button>
-        <div className="flex gap-3">
-          <button onClick={() => window.print()} className="bg-white border border-gray-200 px-6 py-2 rounded-full font-black text-[10px] uppercase tracking-widest shadow-sm hover:bg-gray-50">
-            PDF Export
-          </button>
-          <button onClick={() => router.push(`/training/${id}/edit`)} className="bg-black text-white px-6 py-2 rounded-full font-black text-[10px] uppercase tracking-widest shadow-lg">
-            Bearbeiten
-          </button>
-        </div>
+        <button onClick={() => window.close()} className="bg-white text-black px-6 py-3 rounded-xl font-bold text-xs uppercase tracking-widest shadow-2xl hover:bg-gray-100 transition-all flex items-center gap-2">
+          <FaTimes /> Schließen
+        </button>
       </div>
 
-      {/* DER TRAININGSPLAN */}
-      <div className="bg-white rounded-[2.5rem] p-10 shadow-sm border border-gray-100 print:shadow-none print:border-none print:p-0">
+      <div className="max-w-[210mm] mx-auto space-y-8 print:space-y-0">
         
-        {/* Print Header */}
-        <div className="flex justify-between items-start border-b-2 border-gray-100 pb-8 mb-10">
-          <div>
-            <div className="text-[10px] font-black text-blue-600 uppercase tracking-[0.2em] mb-2">Trainingsprotokoll</div>
-            <h1 className="text-4xl font-black text-[#1D1D1F] uppercase italic tracking-tighter">{plan.title}</h1>
-            <div className="flex items-center gap-4 mt-2 text-xs font-bold text-gray-400 uppercase">
-              <span>{new Date(plan.scheduled_at).toLocaleDateString('de-DE')}</span>
-              <span>•</span>
-              <span>{new Date(plan.scheduled_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr</span>
-              <span>•</span>
-              <span>Rasenplatz</span>
-            </div>
-          </div>
-          <div className="text-right">
-             <div className="text-[10px] font-black uppercase text-gray-400 mb-1">Trainer</div>
-             <div className="font-black text-sm">Kevin Schneider</div>
-          </div>
-        </div>
-
-        {/* PHASEN GRID */}
-        <div className="space-y-12">
-          {Object.entries({
-            warmup: "01 Einstimmen / Aufwärmen",
-            main1: "02 Hauptteil I - Technik",
-            main2: "03 Hauptteil II - Spielform",
-            coolDown: "04 Ausklang"
-          }).map(([key, title]) => (
-            <div key={key} className="print:break-inside-avoid">
-              <h3 className="text-xs font-black uppercase tracking-[0.2em] text-gray-900 mb-6 flex items-center gap-3">
-                <span className="w-6 h-6 bg-gray-100 rounded flex items-center justify-center text-[10px]">{key === 'warmup' ? 'A' : key === 'main1' ? 'B' : key === 'main2' ? 'C' : 'D'}</span>
-                {title}
-              </h3>
-              
-              <div className="grid grid-cols-1 gap-4">
-                {(phases[key] || []).length === 0 ? (
-                  <p className="text-xs italic text-gray-300">Keine Übungen geplant.</p>
-                ) : (
-                  phases[key].map((ex: any, idx: number) => (
-                    <div key={idx} className="flex gap-6 p-5 bg-gray-50 rounded-2xl border border-gray-100 print:bg-white print:border-gray-200">
-                      <div className="w-24 h-24 bg-white rounded-xl overflow-hidden shrink-0 border border-gray-100">
-                        {ex.image_url ? <img src={ex.image_url} className="w-full h-full object-cover" /> : <div className="flex items-center justify-center h-full text-2xl">⚽</div>}
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex justify-between items-start mb-1">
-                          <h4 className="font-black text-sm uppercase tracking-tight">{ex.title}</h4>
-                          <span className="text-[10px] font-black bg-white px-2 py-1 rounded border border-gray-200">{ex.duration} MIN</span>
+        {allExercises.map((ex, index) => {
+            const materials = parseMaterials(ex.materials || ex.material);
+            
+            return (
+                <div 
+                    key={index} 
+                    className="bg-white w-[210mm] min-h-[297mm] p-12 shadow-2xl print:shadow-none mx-auto flex flex-col page-break relative print:border-0"
+                >
+                    {/* HEADER */}
+                    <header className="flex justify-between items-start mb-6 border-b-2 border-gray-100 pb-4">
+                        <div>
+                            <div className="flex items-center gap-3 mb-1 text-gray-400 text-[10px] font-bold uppercase tracking-widest">
+                                <span>{formattedDate}</span>
+                                <span>•</span>
+                                <span>{plan.author || "Coach"}</span>
+                            </div>
+                            <h1 className="text-3xl font-black uppercase tracking-tight leading-none mb-2">{plan.title}</h1>
+                            
+                            <div className={`flex items-center gap-2 font-black text-xs uppercase tracking-widest ${ex._phaseColor}`}>
+                                <span className="bg-gray-100 px-2 py-0.5 rounded text-black">Übung {index + 1}</span>
+                                <span>•</span>
+                                <span>{ex._phaseTitle}</span>
+                            </div>
                         </div>
-                        <p className="text-xs text-gray-500 leading-relaxed line-clamp-3 print:line-clamp-none">
-                          {ex.description || "Keine Beschreibung verfügbar."}
-                        </p>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
+                        
+                        {/* LOGO */}
+                        <div className="w-20 h-20 relative shrink-0">
+                           <img 
+                             src="/img/logo.png" 
+                             alt="Vereinslogo" 
+                             className="w-full h-full object-contain" 
+                           />
+                        </div>
+                    </header>
 
-        {/* FOOTER FÜR DRUCK */}
-        <div className="hidden print:block mt-12 pt-8 border-t border-gray-100 text-[10px] font-bold text-gray-400 text-center uppercase tracking-widest">
-          Erstellt mit deinem Coaching Tool • Seite 1 von 1
-        </div>
+                    {/* TITEL & METADATEN */}
+                    <div className="flex justify-between items-start mb-4 gap-4">
+                        <h2 className="text-3xl font-black uppercase italic tracking-tighter leading-none flex-1">
+                            {ex.title}
+                        </h2>
+                        <div className="flex gap-2 shrink-0">
+                            <div className="text-center bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100 min-w-[70px] print:bg-white print:border-gray-200">
+                                <p className="text-[8px] font-black text-gray-400 uppercase">Dauer</p>
+                                <p className="text-lg font-black italic text-[#1D1D1F] flex justify-center items-center gap-1">
+                                   <FaRegClock className="text-xs text-gray-400"/> {ex.duration || '0'}'
+                                </p>
+                            </div>
+                            <div className="text-center bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100 min-w-[70px] print:bg-white print:border-gray-200">
+                                <p className="text-[8px] font-black text-gray-400 uppercase">Spieler</p>
+                                <p className="text-lg font-black italic text-[#1D1D1F] flex justify-center items-center gap-1">
+                                   <FaUser className="text-xs text-gray-400"/> {ex.min_players ? `${ex.min_players}-${ex.max_players}` : (ex.players || 'Beliebig')}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* TAKTIK-BILD */}
+                    <div className="w-full h-[350px] bg-white rounded-[1.5rem] mb-6 border-2 border-gray-100 flex items-center justify-center relative p-2 print:border-gray-300 page-break-inside-avoid">
+                        {ex.image_url ? (
+                            <img src={ex.image_url} className="w-full h-full object-contain" alt={ex.title} />
+                        ) : (
+                            <div className="flex flex-col items-center gap-2 text-gray-300">
+                                <FaFutbol className="text-4xl opacity-50"/>
+                                <span className="font-black text-xs uppercase tracking-widest">Keine Skizze</span>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* CONTENT GRID */}
+                    <div className="grid grid-cols-3 gap-8 flex-1 items-start">
+                        
+                        {/* TEXT (Links - 2/3 Breite) */}
+                        <div className="col-span-2 flex flex-col gap-4">
+                            <div>
+                                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 mb-2 flex items-center gap-2">
+                                    <span className="w-4 h-[2px] bg-black"></span> Beschreibung
+                                </h3>
+                                <div className="text-[13px] leading-relaxed text-gray-900 whitespace-pre-wrap font-medium text-justify">
+                                    {ex.description || "Keine Beschreibung verfügbar."}
+                                </div>
+                            </div>
+
+                            {ex.coaching_points && (
+                                <div className="bg-gray-50 p-3 rounded-xl border-l-4 border-black italic print:bg-white print:border print:border-gray-300 print:border-l-black page-break-inside-avoid mt-2">
+                                    <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-black mb-1">
+                                      Coaching Punkte
+                                    </h3>
+                                    <div className="text-xs leading-relaxed text-gray-700 font-bold">
+                                      {ex.coaching_points}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* MATERIAL (Rechts - 1/3 Breite - IMMER 2 SPALTEN, ABER KOMPAKT) */}
+                        <div className="col-span-1 border-l-2 border-gray-50 pl-6 flex flex-col print:border-gray-200">
+                            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 mb-3 flex items-center gap-2">
+                                Material
+                            </h3>
+                            
+                            {materials.length > 0 ? (
+                                // IMMER grid-cols-2, aber kompaktes Design (gap-1, py-1)
+                                <div className="grid grid-cols-2 gap-1.5">
+                                    {materials.map((mat: any, idx: number) => (
+                                        <div 
+                                            key={idx} 
+                                            className="flex flex-col justify-center items-center text-center bg-gray-50 rounded border border-gray-100 print:bg-white print:border-gray-200 px-1 py-1.5 page-break-inside-avoid"
+                                        >
+                                            {mat.amount && <span className="font-black block text-xs mb-0.5">{mat.amount}x</span>}
+                                            <span className="text-[9px] font-bold text-gray-700 uppercase leading-none w-full break-words">
+                                                {mat.name}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="text-xs text-gray-300 italic">Kein Material nötig.</div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* PAGE FOOTER */}
+                    <div className="pt-4 border-t border-gray-100 flex justify-between items-center text-[8px] font-black text-gray-300 uppercase tracking-widest mt-auto print:border-gray-200 print:mt-6">
+                        <span>FC Coach App — Saison 2025/26</span>
+                        <span>Seite {index + 1} von {allExercises.length}</span>
+                    </div>
+                </div>
+            );
+        })}
       </div>
 
-      {/* SPEZIELLES PRINT-STYLE-TAG */}
+      {/* PRINT STYLES */}
       <style jsx global>{`
         @media print {
-          body {
-            background: white !important;
+          @page { size: A4; margin: 0; }
+          .page-break { 
+            break-after: page !important; 
+            display: flex !important; 
+            min-height: 297mm !important; 
+            height: auto !important; 
+          }
+          .page-break-inside-avoid {
+            break-inside: avoid !important;
+          }
+          body { 
+            background-color: white !important; 
             margin: 0 !important;
-            padding: 0 !important;
+            -webkit-print-color-adjust: exact !important; 
+            print-color-adjust: exact !important;
+            color: black !important;
           }
-          .ml-64 {
-            margin-left: 0 !important;
-          }
-          /* Versteckt die Sidebar (falls sie globaler Bestandteil des Layouts ist) */
-          aside, nav, .print\\:hidden {
-            display: none !important;
-          }
+          .print\\:hidden { display: none !important; }
         }
       `}</style>
     </div>

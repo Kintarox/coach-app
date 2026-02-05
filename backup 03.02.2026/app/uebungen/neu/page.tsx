@@ -1,0 +1,288 @@
+"use client";
+
+import { useState, useRef } from 'react';
+import { supabase } from '@/lib/supabaseClient';
+import { useRouter } from 'next/navigation';
+
+export default function NewExercisePage() {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // FORM STATES
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [coachingPoints, setCoachingPoints] = useState('');
+  const [duration, setDuration] = useState(15);
+  const [minPlayers, setMinPlayers] = useState(8);
+  const [maxPlayers, setMaxPlayers] = useState(12);
+  
+  // KATEGORIE (Single Choice)
+  const [selectedCategory, setSelectedCategory] = useState<string>('');
+  const [selectedAges, setSelectedAges] = useState<string[]>([]);
+
+  // KATEGORIEN LISTE
+  const categoryOptions = [
+    'Schnelligkeit', 'Athletiktraining', 'Abschlussspiele', 'Torwarttraining',
+    'Passspiel', 'Torschuss', 'Ballannahme', 'Dribbling', 'Koordination',
+    'XvsX', 'Spielaufbau', 'Umschalten', 'Pressing', 'Überzahlspiel',
+    'Chancen herausspielen', 'Kombinationsspiel'
+  ];
+
+  // TEAMS (Jetzt vollständig mit U12 etc.)
+  const teamOptions = ['KM', 'U19', 'U17', 'U16', 'U15', 'U14', 'U13', 'U12', 'U11', 'U10', 'U9', 'U8', 'U7', 'U6'];
+
+  // MATERIALIEN
+  const [materials, setMaterials] = useState({
+    balls: 0, cones: 0, hurdles: 0, poles: 0, goals: 0, bibs: 0, ladder: 0, dummies: 0, rings: 0
+  });
+
+  const materialConfig = [
+    { id: 'balls', label: 'Bälle', icon: '⚽' },
+    { id: 'cones', label: 'Hütchen', icon: '📍' },
+    { id: 'bibs', label: 'Laibchen', icon: '🎽' },
+    { id: 'goals', label: 'Tore', icon: '🥅' },
+    { id: 'poles', label: 'Stangen', icon: '🦯' },
+    { id: 'hurdles', label: 'Hürden', icon: '🚧' },
+    { id: 'ladder', label: 'K-Leiter', icon: '🪜' },
+    { id: 'dummies', label: 'Dummys', icon: '👤' },
+    { id: 'rings', label: 'Ringe', icon: '⭕' },
+  ];
+
+  // BILD VERARBEITUNG
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [processedImage, setProcessedImage] = useState<Blob | null>(null);
+
+// Ersetze deine alte handleImageUpload Funktion hiermit:
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        
+        // --- NEUE LOGIK: Kein Abschneiden mehr ---
+        
+        // Maximale Breite festlegen (für Speicherplatz-Optimierung)
+        const maxWidth = 1280;
+        
+        // Berechne Skalierungsfaktor (nur verkleinern, nicht vergrößern)
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+
+        // Canvas genau auf die Bildgröße setzen (kein 16:9 Zwang mehr!)
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext('2d');
+        
+        // Bild zeichnen
+        ctx?.drawImage(img, 0, 0, width, height);
+
+        // Als WebP speichern
+        canvas.toBlob((blob) => {
+          if (blob) {
+            setProcessedImage(blob);
+            setImagePreview(URL.createObjectURL(blob));
+          }
+        }, 'image/webp', 0.85); // 85% Qualität
+      };
+      img.src = event.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // LOGIK FÜR "ALLE" UND EINZELWAHL
+  const toggleAge = (age: string) => {
+    if (age === 'Alle') {
+        // Wenn alle bereits ausgewählt sind -> Alles abwählen
+        // Sonst -> Alles auswählen
+        const allSelected = teamOptions.every(t => selectedAges.includes(t));
+        if (allSelected) {
+            setSelectedAges([]);
+        } else {
+            setSelectedAges([...teamOptions]);
+        }
+    } else {
+        // Normale Einzelwahl
+        setSelectedAges(prev => 
+            prev.includes(age) ? prev.filter(a => a !== age) : [...prev, age]
+        );
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!title) return alert("Bitte Titel eingeben!");
+    if (!selectedCategory) return alert("Bitte eine Kategorie wählen!");
+
+    setLoading(true);
+
+    try {
+      let imageUrl = null;
+      if (processedImage) {
+        const fileName = `${Date.now()}.webp`;
+        const { error: uploadError } = await supabase.storage.from('exercise-images').upload(fileName, processedImage);
+        if (!uploadError) {
+          const { data } = supabase.storage.from('exercise-images').getPublicUrl(fileName);
+          imageUrl = data.publicUrl;
+        }
+      }
+
+      const matList = materialConfig.filter(m => (materials as any)[m.id] > 0).map(m => `${(materials as any)[m.id]} ${m.label}`);
+
+      const { error } = await supabase.from('exercises').insert({
+        title, description, coaching_points: coachingPoints, duration,
+        min_players: minPlayers, max_players: maxPlayers,
+        category: selectedCategory,
+        tags: [selectedCategory], 
+        age_groups: selectedAges,
+        materials: matList.join(', '),
+        image_url: imageUrl
+      });
+
+      if (!error) router.push('/uebungen');
+    } catch (err) { console.error(err); }
+    setLoading(false);
+  };
+
+  // Helper check ob "Alle" aktiv sein sollte (optisch)
+  const isAllSelected = teamOptions.length > 0 && teamOptions.every(t => selectedAges.includes(t));
+
+  return (
+    <div className="bg-[#F5F5F7] min-h-screen ml-64 p-6 pb-20">
+      <div className="max-w-[1200px] mx-auto">
+        <div className="flex justify-between items-center mb-6">
+            <h1 className="text-2xl font-black italic uppercase tracking-tight">Drill erstellen</h1>
+            <button onClick={() => router.back()} className="text-gray-400 font-bold text-[10px] uppercase tracking-widest hover:text-black transition">Abbrechen</button>
+        </div>
+
+        <div className="grid grid-cols-12 gap-6">
+            {/* LINKS: EINSTELLUNGEN */}
+            <div className="col-span-4 space-y-4">
+                
+                {/* BILD */}
+                <div onClick={() => fileInputRef.current?.click()} className="bg-white rounded-[2rem] aspect-video flex flex-col items-center justify-center text-gray-400 cursor-pointer overflow-hidden group shadow-sm hover:shadow-md transition-all">
+                    <input type="file" ref={fileInputRef} onChange={handleImageUpload} className="hidden" accept="image/*" />
+                    {imagePreview ? <img src={imagePreview} className="w-full h-full object-cover" /> : (
+                        <div className="text-center group-hover:scale-105 transition-transform"><i className="ph-bold ph-camera text-2xl mb-1 block opacity-30"></i><span className="text-[8px] font-black uppercase tracking-widest">Bild hochladen</span></div>
+                    )}
+                </div>
+
+                {/* SLIDER */}
+                <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 flex items-center justify-between">
+                    <div className="text-center w-1/3"><span className="text-2xl font-black italic">{duration}'</span><input type="range" min="5" max="90" step="5" value={duration} onChange={e => setDuration(parseInt(e.target.value))} className="w-full accent-black mt-2" /></div>
+                    <div className="w-px h-8 bg-gray-100"></div>
+                    <div className="text-center space-y-1"><span className="text-[8px] font-black text-gray-300 uppercase tracking-widest">Spieler</span>
+                        <div className="flex items-center bg-gray-50 rounded-lg p-1">
+                            <button onClick={() => setMinPlayers(Math.max(1, minPlayers - 1))} className="w-6 h-6 bg-white rounded shadow-sm text-xs font-bold text-gray-400">-</button>
+                            <span className="w-8 font-black text-xs">{minPlayers}</span>
+                            <button onClick={() => setMinPlayers(minPlayers + 1)} className="w-6 h-6 bg-black text-white rounded shadow-sm text-xs font-bold text-white">+</button>
+                        </div>
+                    </div>
+                </div>
+
+                {/* TEAMS MIT "ALLE" LOGIK */}
+                <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100">
+                    <span className="text-[9px] font-black text-gray-300 block mb-3 uppercase tracking-widest text-center">Geeignet für Teams</span>
+                    <div className="flex flex-wrap gap-1.5 justify-center">
+                        {/* ALLE Button */}
+                        <button 
+                            onClick={() => toggleAge('Alle')} 
+                            className={`px-3 py-1 rounded-lg font-black text-[9px] transition-all border ${isAllSelected ? 'bg-black text-white border-black' : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200'}`}
+                        >
+                            ALLE
+                        </button>
+                        
+                        {/* Einzelne Teams */}
+                        {teamOptions.map(age => (
+                            <button 
+                                key={age} 
+                                onClick={() => toggleAge(age)} 
+                                className={`px-2.5 py-1 rounded-lg font-black text-[9px] transition-all ${selectedAges.includes(age) ? 'bg-black text-white shadow-md' : 'bg-gray-50 text-gray-400 hover:bg-gray-100'}`}
+                            >
+                                {age}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            </div>
+
+            {/* RECHTS: CONTENT */}
+            <div className="col-span-8 space-y-4">
+                
+                {/* TITEL */}
+                <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100">
+                    <input 
+                        value={title} 
+                        onChange={e => setTitle(e.target.value)} 
+                        className="w-full text-2xl font-black border-none p-0 focus:ring-0 placeholder-gray-100 italic bg-transparent outline-none" 
+                        placeholder="Titel der Übung..." 
+                    />
+                </div>
+
+                {/* KATEGORIEN */}
+                <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100">
+                    <span className="text-[9px] font-black text-gray-300 block mb-4 uppercase tracking-widest text-center">Übungskategorie</span>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                        {categoryOptions.map(cat => (
+                            <button 
+                                key={cat} 
+                                onClick={() => setSelectedCategory(cat)} 
+                                className={`px-3 py-2 rounded-xl font-bold text-[9px] uppercase tracking-wider transition-all ${
+                                    selectedCategory === cat 
+                                    ? 'bg-black text-white shadow-lg scale-105' 
+                                    : 'bg-gray-50 text-gray-400 hover:bg-gray-100'
+                                }`}
+                            >
+                                {cat}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                {/* BESCHREIBUNG */}
+                <div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 overflow-hidden">
+                    <div className="px-6 py-2 bg-gray-50 border-b border-gray-100"><span className="text-[8px] font-black uppercase text-gray-400 tracking-widest">Ablauf & Aufbau</span></div>
+                    <textarea value={description} onChange={e => setDescription(e.target.value)} className="w-full border-none p-6 font-medium text-gray-600 focus:ring-0 h-32 resize-none text-sm leading-relaxed bg-transparent outline-none" placeholder="Beschreibung..." />
+                </div>
+
+                {/* COACHING */}
+                <div className="bg-blue-50/30 rounded-[2rem] border border-blue-100 overflow-hidden">
+                    <div className="px-6 py-2 bg-blue-50 border-b border-blue-100 flex items-center gap-2"><i className="ph-bold ph-megaphone text-blue-500 text-[10px]"></i><span className="text-[8px] font-black uppercase text-blue-500 tracking-widest">Coaching Fokus</span></div>
+                    <textarea value={coachingPoints} onChange={e => setCoachingPoints(e.target.value)} className="w-full border-none bg-transparent p-6 font-medium text-blue-900 focus:ring-0 h-24 resize-none italic text-sm outline-none" placeholder="Worauf kommt es an?" />
+                </div>
+
+                {/* EQUIPMENT */}
+                <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100">
+                    <span className="text-[9px] font-black text-gray-300 block mb-6 uppercase tracking-widest text-center">Equipment</span>
+                    <div className="grid grid-cols-3 md:grid-cols-9 gap-4">
+                        {materialConfig.map((item) => (
+                            <div key={item.id} className="text-center group">
+                                <div className="text-xl mb-1">{item.icon}</div>
+                                <div className="flex flex-col items-center bg-gray-50 rounded-lg p-1 border border-gray-100 gap-1">
+                                    <button onClick={() => setMaterials(prev => ({ ...prev, [item.id]: (prev as any)[item.id] + 1 }))} className="w-5 h-5 bg-black text-white rounded shadow-sm text-[10px] font-bold">+</button>
+                                    <span className="font-black text-[10px]">{(materials as any)[item.id]}</span>
+                                    <button onClick={() => setMaterials(prev => ({ ...prev, [item.id]: Math.max(0, (prev as any)[item.id] - 1) }))} className="w-5 h-5 bg-white rounded shadow-sm text-[10px] font-bold text-gray-400">-</button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                <button onClick={handleSubmit} disabled={loading} className="w-full bg-black text-white py-4 rounded-[2rem] font-black uppercase tracking-[0.2em] shadow-xl hover:scale-[1.01] transition-all text-xs">
+                    {loading ? 'Drill wird gespeichert...' : 'In Academy sichern'}
+                </button>
+            </div>
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -103,8 +103,7 @@ export default function Sidebar() {
   );
 
   return (
-    // HIER WURDE "print:hidden" HINZUGEFÜGT:
-    <aside className="w-64 bg-white h-screen fixed left-0 top-0 border-r border-gray-100 flex flex-col z-50 overflow-y-auto print:hidden">
+    <aside className="w-64 bg-white h-screen fixed left-0 top-0 border-r border-gray-100 flex flex-col z-50 overflow-y-auto">
       
       {/* LOGO */}
       <div className="p-8 pb-4">
