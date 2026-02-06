@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
 
-// Typen
 type DragItem = {
   type: 'NEW' | 'MOVE';
   exercise: any;
@@ -46,12 +45,10 @@ export default function NewTrainingSessionPage() {
     'Chancen herausspielen', 'Kombinationsspiel'
   ];
 
-  // INIT DATA
   useEffect(() => {
     const initData = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) setCurrentUserId(user.id);
-      
       const { data } = await supabase.from('exercises').select('*').order('title');
       if (data) {
         setExercises(data);
@@ -61,7 +58,6 @@ export default function NewTrainingSessionPage() {
     initData();
   }, []);
 
-  // FILTER LOGIC
   useEffect(() => {
     let result = exercises;
     if (activeCategory !== 'Alle') {
@@ -76,7 +72,6 @@ export default function NewTrainingSessionPage() {
     setFilteredExercises(result);
   }, [searchTerm, activeCategory, exercises]);
 
-  // DRAG & DROP HANDLERS
   const handleDragStartNew = (e: React.DragEvent, exercise: any) => {
     const item: DragItem = { type: 'NEW', exercise };
     e.dataTransfer.setData("application/json", JSON.stringify(item));
@@ -102,11 +97,9 @@ export default function NewTrainingSessionPage() {
       const item: DragItem = JSON.parse(dataString);
       setPhases(prev => {
         const newPhases = { ...prev };
-        // Wenn verschoben wird, aus alter Phase löschen
         if (item.type === 'MOVE' && item.sourcePhase !== undefined && item.sourceIndex !== undefined) {
           newPhases[item.sourcePhase] = newPhases[item.sourcePhase].filter((_, i) => i !== item.sourceIndex);
         }
-        // In neue Phase einfügen
         newPhases[targetPhase] = [...newPhases[targetPhase], item.exercise];
         return newPhases;
       });
@@ -120,12 +113,10 @@ export default function NewTrainingSessionPage() {
     }));
   };
 
-  // SAVE HANDLER
   const handleSave = async () => {
     if (!planTitle) return alert("Bitte Titel eingeben");
     if (!currentUserId) return alert("Fehler: Benutzer nicht identifiziert.");
 
-    // VALIDIERUNG: Max 1 Übung pro Phase
     const phaseNames: { [key: string]: string } = {
         warmup: "Aufwärmen",
         main1: "Hauptteil I",
@@ -163,14 +154,11 @@ export default function NewTrainingSessionPage() {
     setLoading(false);
   };
 
-  // --- RENDER ---
   return (
-    // FIX: h-screen und overflow-hidden sorgen dafür, dass wir im "App-Modus" sind.
-    // pb-0 hier, da wir das Padding in den inneren Containern regeln.
-    <div className="bg-[#F5F5F7] h-screen ml-64 p-6 flex flex-col overflow-hidden relative">
+    <div className="bg-[#F5F5F7] min-h-screen ml-64 p-6 pb-40 flex flex-col h-screen overflow-hidden">
       
       {/* HEADER BEREICH */}
-      <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-gray-100 mb-6 shrink-0 z-10">
+      <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-gray-100 mb-6 shrink-0">
          <input 
             value={planTitle} onChange={e => setPlanTitle(e.target.value)}
             className="text-3xl font-black text-[#1D1D1F] border-2 border-dashed border-gray-300 rounded-xl focus:border-black focus:ring-0 px-4 py-2 placeholder-gray-300 w-full bg-transparent transition-all hover:border-gray-400" 
@@ -192,7 +180,7 @@ export default function NewTrainingSessionPage() {
          </div>
       </div>
 
-      <div className="flex gap-6 flex-1 overflow-hidden relative">
+      <div className="flex gap-6 flex-1 overflow-hidden">
         
         {/* LINKER BEREICH: ÜBUNGSSUCHE */}
         <div className="w-1/3 flex flex-col bg-white rounded-[2rem] shadow-sm border border-gray-100 overflow-hidden">
@@ -203,8 +191,8 @@ export default function NewTrainingSessionPage() {
                     <input type="text" placeholder="Übung suchen..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full bg-gray-50 border-none rounded-xl py-2 pl-9 pr-4 text-xs font-bold focus:ring-1 focus:ring-black"/>
                 </div>
                 
-                {/* Filter */}
-                <div className="flex flex-wrap gap-1.5 content-start max-h-24 overflow-y-auto custom-scrollbar">
+                {/* Filter: Micro-Tags mit Wrap */}
+                <div className="flex flex-wrap gap-1.5 content-start">
                     <button onClick={() => setActiveCategory('Alle')} className={`px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-wider border transition-all ${activeCategory === 'Alle' ? 'bg-black text-white border-black' : 'bg-white text-gray-400 border-gray-100 hover:border-gray-300 hover:text-gray-600'}`}>Alle</button>
                     {filterCategories.map(cat => (
                         <button key={cat} onClick={() => setActiveCategory(cat)} className={`px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-wider border transition-all ${activeCategory === cat ? 'bg-black text-white border-black' : 'bg-white text-gray-400 border-gray-100 hover:border-gray-300 hover:text-gray-600'}`}>{cat}</button>
@@ -213,11 +201,14 @@ export default function NewTrainingSessionPage() {
             </div>
 
             {/* Übungsliste */}
-            {/* FIX: pb-32 sorgt dafür, dass man bis ganz unten scrollen kann, auch wenn der Footer da ist */}
-            <div className="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar pb-32">
+            <div className="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar">
                 {filteredExercises.length === 0 && <div className="text-center py-10 text-gray-300 text-[10px] font-black uppercase tracking-widest">Keine Übungen gefunden</div>}
                 {filteredExercises.map(ex => {
-                    const playersDisplay = ex.min_players === ex.max_players ? ex.min_players : `${ex.min_players}-${ex.max_players}`;
+                    // Logic für Spieler-Anzeige
+                    const playersDisplay = ex.min_players === ex.max_players 
+                        ? ex.min_players 
+                        : `${ex.min_players}-${ex.max_players}`;
+
                     return (
                         <div 
                             key={ex.id} draggable onDragStart={(e) => handleDragStartNew(e, ex)} onDragEnd={handleDragEnd}
@@ -230,12 +221,15 @@ export default function NewTrainingSessionPage() {
                                 <h4 className="font-black text-xs text-gray-900 truncate mb-0.5">{ex.title}</h4>
                                 <div className="flex gap-1.5 flex-wrap">
                                     <span className="bg-gray-50 text-gray-400 text-[8px] font-bold px-1.5 py-0.5 rounded uppercase">{ex.duration}'</span>
+                                    
+                                    {/* NEU: Spieler Anzeige */}
                                     {(ex.min_players || ex.players) && (
                                         <span className="bg-gray-50 text-gray-400 text-[8px] font-bold px-1.5 py-0.5 rounded uppercase flex items-center gap-1">
                                             <i className="ph-bold ph-users"></i> 
                                             {ex.min_players ? playersDisplay : ex.players}
                                         </span>
                                     )}
+
                                     <span className="bg-gray-50 text-gray-400 text-[8px] font-bold px-1.5 py-0.5 rounded uppercase truncate max-w-[80px]">{ex.category}</span>
                                 </div>
                             </div>
@@ -247,8 +241,7 @@ export default function NewTrainingSessionPage() {
         </div>
 
         {/* RECHTER BEREICH: PHASEN */}
-        {/* FIX: Auch hier pb-40, damit der Inhalt hinter dem Footer hervorgerollt werden kann */}
-        <div className="flex-1 flex flex-col gap-4 overflow-y-auto custom-scrollbar pb-40 pr-2">
+        <div className="flex-1 flex flex-col gap-4 overflow-y-auto custom-scrollbar pb-20 pr-2">
             <PhaseDropZone phaseKey="warmup" title="Einstimmen / Aufwärmen" meta="ca. 10-15 Min • Spielerisch" color="orange" number="1" exercises={phases.warmup} onDrop={handleDrop} onDragOver={handleDragOver} onDragStartMove={handleDragStartMove} onRemove={removeExercise} isDragging={isDragging} />
             <PhaseDropZone phaseKey="main1" title="Hauptteil I - Technik" meta="ca. 15-20 Min • Intensiv" color="blue" number="2" exercises={phases.main1} onDrop={handleDrop} onDragOver={handleDragOver} onDragStartMove={handleDragStartMove} onRemove={removeExercise} isDragging={isDragging} />
             <PhaseDropZone phaseKey="main2" title="Hauptteil II - Spielform" meta="ca. 25-30 Min • Anwendung" color="purple" number="3" exercises={phases.main2} onDrop={handleDrop} onDragOver={handleDragOver} onDragStartMove={handleDragStartMove} onRemove={removeExercise} isDragging={isDragging} />
@@ -256,20 +249,16 @@ export default function NewTrainingSessionPage() {
         </div>
       </div>
 
-      {/* FOOTER ACTION BAR */}
-      {/* FIX: z-[100] sorgt dafür, dass diese Leiste ÜBER dem globalen Footer liegt */}
-      <div className="fixed bottom-0 left-64 right-0 bg-white/90 backdrop-blur-md border-t border-gray-200 p-4 flex justify-between items-center z-[100] shadow-[0_-5px_20px_rgba(0,0,0,0.05)]">
+      <div className="fixed bottom-0 left-64 right-0 bg-white border-t border-gray-100 p-4 flex justify-between items-center z-50">
         <button onClick={() => router.back()} className="text-xs font-black uppercase tracking-widest text-gray-400 hover:text-black transition ml-6">Abbrechen</button>
         <button onClick={handleSave} disabled={loading} className="bg-black text-white px-10 py-3 rounded-full font-black text-xs uppercase tracking-widest shadow-xl hover:scale-105 transition mr-6">
             {loading ? 'Speichere...' : 'Plan Fertigstellen'}
         </button>
       </div>
-
     </div>
   );
 }
 
-// Sub-Komponente
 function PhaseDropZone({ phaseKey, title, meta, color, number, exercises, onDrop, onDragOver, onRemove, isDragging, onDragStartMove }: any) {
     const colorClasses: any = { orange: 'bg-orange-500 shadow-orange-100', blue: 'bg-blue-600 shadow-blue-100', purple: 'bg-purple-600 shadow-purple-100', green: 'bg-emerald-500 shadow-emerald-100' };
     const borderClasses: any = { orange: 'hover:border-orange-200', blue: 'hover:border-blue-200', purple: 'hover:border-purple-200', green: 'hover:border-emerald-200' };

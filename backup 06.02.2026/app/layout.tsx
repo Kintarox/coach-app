@@ -24,20 +24,13 @@ export default function RootLayout({
       <body className={`${inter.className} antialiased bg-[#F5F5F7]`}>
         <AppLayout>
           
-          {/* FIX: pb-40 (160px) statt pb-16.
-             Das gibt massig Platz am Ende der Seite, damit man 
-             immer bis unter die Buttons scrollen kann.
-          */}
-          <div className="min-h-screen pb-40 relative">
+          {/* WICHTIG: pb-16 sorgt für Abstand unten, damit der Footer nichts verdeckt */}
+          <div className="min-h-screen pb-16 relative">
             
             <main>
               {children}
             </main>
 
-            {/* Der Footer wird hier eingebunden. 
-               Falls er 'fixed' ist, schwebt er. 
-               Falls er 'absolute' ist, klebt er jetzt ganz unten dank pb-40.
-            */}
             <Footer />
             
           </div>

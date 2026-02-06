@@ -4,8 +4,6 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter, useParams } from 'next/navigation';
 
-export const dynamic = 'force-dynamic';
-
 // Typen für Drag & Drop
 type DragItem = {
   type: 'NEW' | 'MOVE';
@@ -60,6 +58,7 @@ export default function EditTrainingSessionPage() {
       if (data) {
         setPlanTitle(data.title);
         
+        // Nutze scheduled_at falls vorhanden, sonst Fallback auf altes date/time
         if (data.scheduled_at) {
             const dt = new Date(data.scheduled_at);
             setPlanDate(dt.toISOString().split('T')[0]);
@@ -110,7 +109,6 @@ export default function EditTrainingSessionPage() {
     setFilteredExercises(result);
   }, [searchTerm, activeCategory, exercises]);
 
-  // DRAG & DROP
   const handleDragStartNew = (e: React.DragEvent, exercise: any) => {
     const item: DragItem = { type: 'NEW', exercise };
     e.dataTransfer.setData("application/json", JSON.stringify(item));
@@ -158,13 +156,14 @@ export default function EditTrainingSessionPage() {
     if (!planTitle) return alert("Bitte Titel eingeben");
     setSaving(true);
 
+    // NEU: Kombiniere Datum und Zeit zu einem Timestamp für scheduled_at
     const scheduledAt = new Date(`${planDate}T${planTime}`).toISOString();
 
     const { error } = await supabase.from('plans').update({
         title: planTitle,
         date: planDate,
         time: planTime,
-        scheduled_at: scheduledAt,
+        scheduled_at: scheduledAt, // NEU: Das kombinierte Feld
         content: phases
     }).eq('id', id);
 
@@ -180,16 +179,15 @@ export default function EditTrainingSessionPage() {
   if (loading) return <div className="p-20 text-center ml-64 font-black text-gray-300 uppercase animate-pulse">Lade Plan...</div>;
 
   return (
-    // FIX: Gleicher Fix wie bei 'New': Relative Positionierung und h-screen für den "App-Look"
-    <div className="bg-[#F5F5F7] h-screen ml-64 p-6 flex flex-col overflow-hidden relative">
+    <div className="bg-[#F5F5F7] min-h-screen ml-64 p-6 pb-40 flex flex-col h-screen overflow-hidden">
       
-      {/* HEADER */}
-      <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-gray-100 mb-6 shrink-0 transition-all hover:border-blue-200 z-10">
+      {/* HEADER - Jetzt mit gestricheltem Rahmen für bessere Erkennbarkeit */}
+      <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-gray-100 mb-6 shrink-0 transition-all hover:border-blue-200">
          <div className="border-2 border-dashed border-gray-100 rounded-xl px-4 py-2 hover:border-gray-200 transition-colors">
             <input 
-               value={planTitle} onChange={e => setPlanTitle(e.target.value)}
-               className="text-3xl font-black text-[#1D1D1F] border-none focus:ring-0 p-0 placeholder-gray-300 w-full bg-transparent" 
-               placeholder="Name der Einheit..."
+                value={planTitle} onChange={e => setPlanTitle(e.target.value)}
+                className="text-3xl font-black text-[#1D1D1F] border-none focus:ring-0 p-0 placeholder-gray-300 w-full bg-transparent" 
+                placeholder="Name der Einheit..."
             />
          </div>
          <div className="flex items-center gap-4 mt-4 px-4 text-xs font-bold text-gray-400 uppercase tracking-widest">
@@ -201,7 +199,7 @@ export default function EditTrainingSessionPage() {
          </div>
       </div>
 
-      <div className="flex gap-6 flex-1 overflow-hidden relative">
+      <div className="flex gap-6 flex-1 overflow-hidden">
         
         {/* LINKS: KATALOG (SIDEBAR) */}
         <div className="w-1/3 flex flex-col bg-white rounded-[2rem] shadow-sm border border-gray-100 overflow-hidden">
@@ -210,7 +208,7 @@ export default function EditTrainingSessionPage() {
                     <i className="ph-bold ph-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
                     <input type="text" placeholder="Übung suchen..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full bg-gray-50 border-none rounded-xl py-3 pl-10 pr-4 text-xs font-bold focus:ring-1 focus:ring-black"/>
                 </div>
-                <div className="flex flex-wrap gap-2 content-start max-h-24 overflow-y-auto custom-scrollbar">
+                <div className="flex flex-wrap gap-2 content-start">
                     <button onClick={() => setActiveCategory('Alle')} className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border transition-all ${activeCategory === 'Alle' ? 'bg-black text-white border-black shadow-md' : 'bg-white text-gray-400 border-gray-100 hover:border-gray-300'}`}>Alle</button>
                     {filterCategories.map(cat => (
                         <button key={cat} onClick={() => setActiveCategory(cat)} className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border transition-all ${activeCategory === cat ? 'bg-black text-white border-black shadow-md' : 'bg-white text-gray-400 border-gray-100 hover:border-gray-300'}`}>{cat}</button>
@@ -218,8 +216,7 @@ export default function EditTrainingSessionPage() {
                 </div>
             </div>
 
-            {/* FIX: pb-32 Padding unten für Scrolling */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar pb-32">
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
                 {filteredExercises.length === 0 && <div className="text-center py-10 text-gray-300 text-[10px] font-black uppercase tracking-widest">Keine Übungen gefunden</div>}
                 {filteredExercises.map(ex => (
                     <div 
@@ -240,8 +237,7 @@ export default function EditTrainingSessionPage() {
         </div>
 
         {/* RECHTS: PLANER */}
-        {/* FIX: pb-40 Padding unten */}
-        <div className="flex-1 flex flex-col gap-4 overflow-y-auto custom-scrollbar pb-40 pr-2">
+        <div className="flex-1 flex flex-col gap-4 overflow-y-auto custom-scrollbar pb-20">
             <PhaseDropZone phaseKey="warmup" title="Einstimmen / Aufwärmen" meta="ca. 10-15 Min • Spielerisch" color="orange" number="1" exercises={phases.warmup} onDrop={handleDrop} onDragOver={handleDragOver} onDragStartMove={handleDragStartMove} onRemove={removeExercise} isDragging={isDragging} />
             <PhaseDropZone phaseKey="main1" title="Hauptteil I - Technik" meta="ca. 15-20 Min • Intensiv" color="blue" number="2" exercises={phases.main1} onDrop={handleDrop} onDragOver={handleDragOver} onDragStartMove={handleDragStartMove} onRemove={removeExercise} isDragging={isDragging} />
             <PhaseDropZone phaseKey="main2" title="Hauptteil II - Spielform" meta="ca. 25-30 Min • Anwendung" color="purple" number="3" exercises={phases.main2} onDrop={handleDrop} onDragOver={handleDragOver} onDragStartMove={handleDragStartMove} onRemove={removeExercise} isDragging={isDragging} />
@@ -250,8 +246,7 @@ export default function EditTrainingSessionPage() {
       </div>
 
       {/* FOOTER */}
-      {/* FIX: z-[100] um globalen Footer zu überdecken */}
-      <div className="fixed bottom-0 left-64 right-0 bg-white/90 backdrop-blur-md border-t border-gray-100 p-4 flex justify-between items-center z-[100] shadow-[0_-5px_20px_rgba(0,0,0,0.05)]">
+      <div className="fixed bottom-0 left-64 right-0 bg-white border-t border-gray-100 p-4 flex justify-between items-center z-50">
         <button onClick={() => router.back()} className="text-xs font-black uppercase tracking-widest text-gray-400 hover:text-black transition ml-6">Abbrechen</button>
         <button onClick={handleUpdate} disabled={saving} className="bg-blue-600 text-white px-10 py-3 rounded-full font-black text-xs uppercase tracking-widest shadow-xl hover:scale-105 transition mr-6">
             {saving ? 'Aktualisiere...' : 'Änderungen speichern'}
@@ -262,7 +257,6 @@ export default function EditTrainingSessionPage() {
   );
 }
 
-// Sub-Komponente
 function PhaseDropZone({ phaseKey, title, meta, color, number, exercises, onDrop, onDragOver, onRemove, isDragging, onDragStartMove }: any) {
     const colorClasses: any = { orange: 'bg-orange-500 shadow-orange-100', blue: 'bg-blue-600 shadow-blue-100', purple: 'bg-purple-600 shadow-purple-100', green: 'bg-emerald-500 shadow-emerald-100' };
     const borderClasses: any = { orange: 'hover:border-orange-200', blue: 'hover:border-blue-200', purple: 'hover:border-purple-200', green: 'hover:border-emerald-200' };
